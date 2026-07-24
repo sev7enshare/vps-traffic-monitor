@@ -11,7 +11,7 @@ if [ ! -s "$CONFIG" ]; then
     echo "=== 初次配置 ==="
     read -p "Telegram Bot Token: " VPS_TG_TOKEN
     read -p "Telegram Chat ID: " VPS_TG_CHAT_ID
-    read -p "节点名称: " NODE_NAME
+    read -p "主机名称: " NODE_NAME
     echo "VPS_TG_TOKEN='$VPS_TG_TOKEN'" > "$CONFIG"
     echo "VPS_TG_CHAT_ID='$VPS_TG_CHAT_ID'" >> "$CONFIG"
     echo "NODE_NAME='$NODE_NAME'" >> "$CONFIG"
@@ -45,13 +45,13 @@ if [ "$1" == "check" ] || [ -z "$1" ]; then
         RUNNING=$(docker ps -q)
         if [ -n "$RUNNING" ]; then
             docker ps -q > "$MARKER_FILE"
-            send_tg "🚨 *流量熔断* 🚨%0A*节点:* $NODE_NAME%0A*已用:* ${TOTAL_GIB} GiB%0A*限额:* ${LIMIT_GB} GiB%0A*动作:* 关停 Docker"
+            send_tg "🚨 *流量熔断* 🚨%0A*主机:* $NODE_NAME%0A*已用:* ${TOTAL_GIB} GiB%0A*限额:* ${LIMIT_GB} GiB%0A*动作:* 关停 Docker"
             docker stop $RUNNING >> "$LOG_FILE" 2>&1
         fi
     elif [ -f "$MARKER_FILE" ]; then
         STOPPED=$(cat "$MARKER_FILE")
         if [ -n "$STOPPED" ]; then
-            send_tg "✅ *流量恢复* ✅%0A*节点:* $NODE_NAME%0A*动作:* 自动拉起 Docker"
+            send_tg "✅ *流量恢复* ✅%0A*主机:* $NODE_NAME%0A*动作:* 自动拉起 Docker"
             docker start $STOPPED >> "$LOG_FILE" 2>&1
         fi
         rm -f "$MARKER_FILE"
@@ -59,6 +59,6 @@ if [ "$1" == "check" ] || [ -z "$1" ]; then
 elif [ "$1" == "report" ]; then
     USAGE_PERCENT=$(echo "scale=2; $TOTAL_GIB * 100 / $LIMIT_GB" | bc)
     REMAINING=$(echo "scale=2; $LIMIT_GB - $TOTAL_GIB" | bc)
-    msg="🌙 *流量晚间汇总* 🌙%0A--------------------------%0A*节点:* $NODE_NAME%0A*IP:* $IP%0A*今日消耗:* ${TODAY_GIB} GiB%0A*本月累计:* ${TOTAL_GIB} GiB%0A*使用率:* ${USAGE_PERCENT}%%%0A*剩余额度:* ${REMAINING} GiB%0A*状态:* 正常监控中"
+    msg="🌙 *流量晚间汇总* 🌙%0A--------------------------%0A*主机:* $NODE_NAME%0A*IP:* $IP%0A*今日消耗:* ${TODAY_GIB} GiB%0A*本月累计:* ${TOTAL_GIB} GiB%0A*使用率:* ${USAGE_PERCENT}%%%0A*剩余额度:* ${REMAINING} GiB%0A*状态:* 正常监控中"
     send_tg "$msg"
 fi
