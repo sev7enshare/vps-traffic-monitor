@@ -1,16 +1,14 @@
 #!/bin/bash
 # ========================================================
-# VPS Traffic Monitor v1.3.0
+# VPS Traffic Monitor v1.3.1
 # 功能：流量监控、Docker 熔断、持久化配置
 # ========================================================
 
-# 配置文件
+# 配置文件路径
 CONFIG="/etc/traffic_config.conf"
 
-# 1. 持久化配置逻辑
-if [ -f "$CONFIG" ]; then
-    source "$CONFIG"
-else
+# 1. 持久化配置逻辑：如果配置文件不存在或为空，则触发引导
+if [ ! -s "$CONFIG" ]; then
     echo "=== 初次配置，请输入信息 ==="
     read -p "请输入 Telegram Bot Token: " VPS_TG_TOKEN
     read -p "请输入 Telegram Chat ID: " VPS_TG_CHAT_ID
@@ -21,6 +19,10 @@ else
     chmod 600 "$CONFIG"
 fi
 
+# 加载配置
+source "$CONFIG"
+
+# 默认限额
 LIMIT_GB=${LIMIT_GB:-3000}
 
 # 基础检查
@@ -48,7 +50,7 @@ if [ "$1" == "check" ] || [ -z "$1" ]; then
         RUNNING=$(docker ps -q)
         if [ -n "$RUNNING" ]; then
             docker ps -q > "$MARKER_FILE"
-            send_tg "🚨 *流量熔断* 🚨%0A*节点:* $NODE_NAME%0A*已用:* ${TOTAL_GIB} GiB%0A*动作:* 关停 Docker"
+            send_tg "🚨 *流量熔断* 🚨%0A*节点:* $NODE_NAME%0A*已用:* ${TOTAL_GIB} GiB%0A*限额:* ${LIMIT_GB} GiB%0A*动作:* 关停 Docker"
             docker stop $RUNNING >> "$LOG_FILE" 2>&1
         fi
     elif [ -f "$MARKER_FILE" ]; then
