@@ -1,6 +1,6 @@
 #!/bin/bash
 # ========================================================
-# VPS Traffic Monitor v1.4.0
+# VPS Traffic Monitor v1.5.0
 # 功能：流量熔断、自动恢复、详细流量统计汇总
 # ========================================================
 
@@ -35,6 +35,15 @@ send_tg() {
         -d "chat_id=$VPS_TG_CHAT_ID" \
         -d "text=$1" \
         -d "parse_mode=Markdown" > /dev/null
+}
+
+markdown_escape() {
+    printf '%s' "$1" | sed \
+        -e 's/\\/\\\\/g' \
+        -e 's/_/\\_/g' \
+        -e 's/\*/\\*/g' \
+        -e 's/`/\\`/g' \
+        -e 's/\[/\\[/g'
 }
 
 get_vnstat_gib() {
@@ -82,21 +91,24 @@ TODAY_GIB=$(get_vnstat_gib day)
 [ -z "$TODAY_GIB" ] && TODAY_GIB=0.00
 TOTAL_GIB=$(printf "%.2f" "$TOTAL_GIB")
 TODAY_GIB=$(printf "%.2f" "$TODAY_GIB")
+SAFE_NODE_NAME=$(markdown_escape "$NODE_NAME")
+SAFE_IP=$(markdown_escape "$IP")
+SAFE_LABEL=$(markdown_escape "${MANAGED_LABEL_KEY}=${MANAGED_LABEL_VALUE}")
 
 if [ "$1" == "check" ] || [ -z "$1" ]; then
     if [ "$(echo "$TOTAL_GIB > $LIMIT_GB" | bc 2>/dev/null)" -eq 1 ]; then
         RUNNING=$(get_managed_containers)
         if [ -n "$RUNNING" ]; then
             printf '%s\n' "$RUNNING" > "$MARKER_FILE"
-            send_tg "🚨 *流量熔断* 🚨%0A*主机:* $NODE_NAME%0A*已用:* ${TOTAL_GIB} GiB%0A*限额:* ${LIMIT_GB} GiB%0A*动作:* 关停受管控 Docker 容器"
+            send_tg "🚨 *流量熔断* 🚨%0A*主机:* $SAFE_NODE_NAME%0A*已用:* ${TOTAL_GIB} GiB%0A*限额:* ${LIMIT_GB} GiB%0A*动作:* 关停受管控 Docker 容器"
             docker stop $RUNNING >> "$LOG_FILE" 2>&1
         else
-            send_tg "⚠️ *流量超限* ⚠️%0A*主机:* $NODE_NAME%0A*已用:* ${TOTAL_GIB} GiB%0A*限额:* ${LIMIT_GB} GiB%0A*状态:* 未发现带 ${MANAGED_LABEL_KEY}=${MANAGED_LABEL_VALUE} 标签的受管控容器，未执行停机"
+            send_tg "⚠️ *流量超限* ⚠️%0A*主机:* $SAFE_NODE_NAME%0A*已用:* ${TOTAL_GIB} GiB%0A*限额:* ${LIMIT_GB} GiB%0A*状态:* 未发现带 ${SAFE_LABEL} 标签的受管控容器，未执行停机"
         fi
     elif [ -f "$MARKER_FILE" ]; then
         STOPPED=$(cat "$MARKER_FILE")
         if [ -n "$STOPPED" ]; then
-            send_tg "✅ *流量恢复* ✅%0A*主机:* $NODE_NAME%0A*动作:* 自动拉起受管控 Docker 容器"
+            send_tg "✅ *流量恢复* ✅%0A*主机:* $SAFE_NODE_NAME%0A*动作:* 自动拉起受管控 Docker 容器"
             docker start $STOPPED >> "$LOG_FILE" 2>&1
         fi
         rm -f "$MARKER_FILE"
@@ -109,6 +121,6 @@ elif [ "$1" == "report" ]; then
         USAGE_PERCENT=0
         REMAINING=0
     fi
-    msg="🌙 *流量晚间汇总* 🌙%0A--------------------------%0A*主机:* $NODE_NAME%0A*IP:* $IP%0A*今日消耗:* ${TODAY_GIB} GiB%0A*本月累计:* ${TOTAL_GIB} GiB%0A*使用率:* ${USAGE_PERCENT}%%%0A*剩余额度:* ${REMAINING} GiB%0A*状态:* 正常监控中"
+    msg="🌙 *流量晚间汇总* 🌙%0A--------------------------%0A*主机:* $SAFE_NODE_NAME%0A*IP:* $SAFE_IP%0A*今日消耗:* ${TODAY_GIB} GiB%0A*本月累计:* ${TOTAL_GIB} GiB%0A*使用率:* ${USAGE_PERCENT}%%%0A*剩余额度:* ${REMAINING} GiB%0A*状态:* 正常监控中"
     send_tg "$msg"
 fi
