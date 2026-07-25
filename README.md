@@ -32,10 +32,10 @@
 建议使用固定 release 版本安装，避免 `main` 分支后续变化影响线上行为：
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/sev7enshare/vps-traffic-monitor/v1.5.0/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/sev7enshare/vps-traffic-monitor/v1.6.0/install.sh)
 ```
 
-如果你确实想安装最新开发版，可以手动把链接里的 `v1.5.0` 换成 `main`。
+如果你确实想安装最新开发版，可以手动把链接里的 `v1.6.0` 换成 `main`。
 
 ## 🐳 Docker 容器标签 (Docker Label)
 需要被流量熔断保护的容器必须带上 `traffic_watch=true` 标签。
@@ -57,8 +57,8 @@ services:
 没有这个标签的容器不会被脚本自动关停。
 
 ## 📝 配置说明 (Configuration)
-- **初次运行：** 脚本会自动引导你输入 Telegram Bot Token、Chat ID 和节点名称。
-- **流量限制：** 默认为 3000 GiB，可以通过系统环境变量 `LIMIT_GB` 进行调整。
+- **初次运行：** 脚本会自动引导你输入 Telegram Bot Token、Chat ID、节点名称和月流量限制。
+- **流量限制：** 初次配置时可输入月流量限制，单位为 GiB；直接回车则默认 3000 GiB。后续也可以通过修改 `/etc/traffic_config.conf` 里的 `LIMIT_GB` 调整。
 - **受管控标签：** 默认使用 `traffic_watch=true`，也可以通过 `MANAGED_LABEL_KEY` 和 `MANAGED_LABEL_VALUE` 调整。
 
 ---

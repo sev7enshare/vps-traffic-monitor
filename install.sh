@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-VERSION="${VERSION:-v1.5.0}"
+VERSION="${VERSION:-v1.6.0}"
 SCRIPT_URL="https://raw.githubusercontent.com/sev7enshare/vps-traffic-monitor/${VERSION}/vps_traffic_watch.sh"
 
 apt-get update && apt-get install -y bc vnstat curl python3 docker.io
@@ -17,6 +17,7 @@ chmod +x /usr/local/bin/traffic_watch.sh
 echo
 echo "VPS Traffic Monitor installed from ${VERSION}."
 echo "Important: only Docker containers with label traffic_watch=true will be stopped when traffic exceeds the limit."
+echo "The first run will ask for Telegram settings and the monthly traffic limit in GiB."
 echo
 echo "docker run example:"
 echo "  docker run --label traffic_watch=true ..."
