@@ -1,67 +1,54 @@
-# VPS Traffic Monitor
+# VPS Traffic Monitor (Soga 实例适配版)
 
-## 🚀 简介 (Introduction)
-这是一个轻量级的 VPS 流量监控与自动化管理脚本。
-
-⚠️ **特别提示：针对 AWS/GCP 等云服务商 (Especially for AWS, GCP, Azure)**
-在亚马逊 AWS、谷歌 GCP 等云平台上，如果服务器没有设置流量上限，且存在异常流量消耗或被黑客利用，可能会产生极高的账单。本项目旨在为你的服务器增加一道“流量安全防线”。
-
-⚠️ **适用范围 (Scope)**
-**本项目脚本目前仅支持通过 Docker 容器部署的任务进行熔断控制。** 如果你的任务是以 Systemd 服务或普通二进制进程形式运行，脚本暂无法自动关停，请知悉。
-
-⚠️ **受管控容器说明 (Managed Containers)**
-从 `v1.5.0` 开始，脚本只会自动关停带有 `traffic_watch=true` 标签的 Docker 容器，避免误停同一台 VPS 上的数据库、反向代理、面板等其他容器。
+用于监控 VPS 月度总流量并在超限时**自动熔断 Soga 实例服务**，防止 AWS / 腾讯云 / 阿里云等按流量计费被刷爆天价账单。
 
 ---
 
-## 📊 智能监控与自动化 (Smart Monitoring & Automation)
-- **流量熔断：** 当月流量超出预设阈值（默认 3000 GiB）时，自动关停受管控 Docker 容器，防止带宽超标。
-- **自动化汇总报告：**
-  - **每日晚间汇总：** 每天 23:59，汇报今日及本月流量消耗情况。
-  - **运行状态监控：** 汇报服务运行健康状况。
-- **Telegram 智能通知：** 流量超标时发送异常通知，流量重置后自动拉起容器并通知恢复。
+## 🌟 核心特性与架构变更 (v2.0.0-soga)
+
+- **弃用 Docker 依赖**：轻量化架构，无需安装或运行 Docker。
+- **专为 Soga 多实例设计**：
+  - 自动扫描 `/etc/soga-client/instances/` 目录下的所有节点（如 `36`, `37` 等）。
+  - 精确匹配对应的 Systemd 服务单元（如 `soga-36.service`, `soga-37.service`）。
+  - 协同管理集中控制服务 `soga-client.service`。
+- **自动熔断阻断**：当月流量超出设定的阈值（例如 3000 GiB / 4000 GiB）时，自动通过 `systemctl stop` 关停 Soga 节点。
+- **次月 1 号自动唤醒**：每月流量清零恢复后，脚本检测到流量回落，会自动执行 `systemctl start` 将上月被关停的节点全部拉起。
+- **Telegram 实时推送**：
+  - 🚨 流量熔断报警（附带被关停的服务名单）
+  - ✅ 流量恢复通知（附带已重新拉起的节点）
+  - 🌙 每日晚间流量消耗日报（23:59 推送当日与当月用量、剩余额度）
 
 ---
 
-## ⚙️ 依赖说明 (Dependencies)
-本脚本会自动通过 `install.sh` 安装以下必备组件：
-- **核心工具：** `bc`, `vnstat`, `curl`
-- **基础环境：** `python3`, `docker.io`, `cron`
+## 🚀 安装部署
 
-## 🛠️ 一键部署 (Quick Deployment)
-建议使用固定 release 版本安装，避免 `main` 分支后续变化影响线上行为：
-
+### 1. 一键安装
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/sev7enshare/vps-traffic-monitor/v1.6.0/install.sh)
+sudo bash install.sh
 ```
 
-如果你确实想安装最新开发版，可以手动把链接里的 `v1.6.0` 换成 `main`。
+### 2. 初次配置
+首次安装或运行，脚本会交互式引导配置：
+- **Telegram Bot Token**
+- **Telegram Chat ID**
+- **主机名称**（如 `Linode-IN`）
+- **月流量限制 (GiB)**（默认 3000）
 
-## 🐳 Docker 容器标签 (Docker Label)
-需要被流量熔断保护的容器必须带上 `traffic_watch=true` 标签。
-
-`docker run` 示例：
-```bash
-docker run --label traffic_watch=true ...
-```
-
-`docker compose` 示例：
-```yaml
-services:
-  app:
-    image: your-image
-    labels:
-      - "traffic_watch=true"
-```
-
-没有这个标签的容器不会被脚本自动关停。
-
-## 📝 配置说明 (Configuration)
-- **初次运行：** 脚本会自动引导你输入 Telegram Bot Token、Chat ID、节点名称和月流量限制。
-- **流量限制：** 初次配置时可输入月流量限制，单位为 GiB；直接回车则默认 3000 GiB。后续也可以通过修改 `/etc/traffic_config.conf` 里的 `LIMIT_GB` 调整。
-- **受管控标签：** 默认使用 `traffic_watch=true`，也可以通过 `MANAGED_LABEL_KEY` 和 `MANAGED_LABEL_VALUE` 调整。
+配置文件保存在 `/etc/traffic_config.conf`，后续可随时手动编辑修改。
 
 ---
 
-## 🛡️ 安全承诺 (Safety)
-本脚本**已完全脱敏**，不会在代码中存储任何敏感信息。所有凭证均通过环境变量注入，确保你的账户安全。
+## 🛠 手动命令
+
+- **手动触发流量检查与熔断检测**：
+  ```bash
+  /bin/bash /usr/local/bin/traffic_watch.sh check
+  ```
+- **手动触发推送今日/当月流量汇总报表**：
+  ```bash
+  /bin/bash /usr/local/bin/traffic_watch.sh report
+  ```
+- **查看运行日志**：
+  ```bash
+  cat /var/log/traffic_watch.log
+  ```
